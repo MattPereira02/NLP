@@ -1,35 +1,42 @@
+# data_preprocessing.py
+
+from sklearn.preprocessing import StandardScaler
+from sklearn.feature_extraction.text import TfidfVectorizer
+from config import COLUMNS
 import joblib
-import pandas as pd
-from preprocessing import preprocess_new_data
 
 tfidf_vectorizer = joblib.load("tfidf_vectorizer.joblib")
-scaler = joblib.load("scaler.joblib")
-model = joblib.load("random_forest_spam_classifier.joblib")
 
-def predict_spam(cleaned_message):
-    """Classifies a new message as spam or not spam."""
-    feature_names = tfidf_vectorizer.get_feature_names_out()
-    transformed_message = tfidf_vectorizer.transform([cleaned_message])
-    message_df = pd.DataFrame(transformed_message.toarray(), columns=feature_names)
-    
-    # Get the columns that the scaler is expecting
-    scaler_columns = scaler.feature_names_in_
-    
-    # Reindex the message_df to match the scaler's columns
-    message_df = message_df.reindex(columns=scaler_columns, fill_value=0)
-    
-    scaled_message = scaler.transform(message_df)
-    prediction = model.predict(scaled_message)  # Predict spam (1) or legit (0)
-    return "Spam" if prediction[0] == 1 else "Legitimate"
+def clean_text(X):
+    """Clean the text data in X by removing spaces and special characters."""
+    X = X.apply(lambda x: ''.join(e for e in str(x) if e.isalnum()) if isinstance(x, str) else x)
+    return X
 
-# User input for testing
-if __name__ == "__main__":
-    message = input("Enter a message to classify: ")
-    cleaned_message = preprocess_new_data(message)
-    result = predict_spam(cleaned_message)
-    print(f"Prediction: {result}")
+def preprocess_data(data):
+    """Preprocess the dataset by scaling the features and preparing the target variable."""
+    
+    # Extract features and target
+    X = data.iloc[:, :-1]  # All columns except the last one (which is the label)
+    y = data['label']  # The label column
 
-def feature_checker(cleaned_message):
-    print(cleaned_message)
-    feature_names = tfidf_vectorizer.get_feature_names_out()
-    return feature_names
+    X= X.apply(lambda x: clean_text(x))
+
+    tfidf_vectorizer = TfidfVectorizer()
+    X_tfidf = tfidf_vectorizer.fit_transform(X)
+
+    # Save the TF-IDF vectorizer for later use
+    joblib.dump(tfidf_vectorizer, "tfidf_vectorizer.joblib")
+    
+    # Scale the features
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+
+    # Save the scaler for later use
+    joblib.dump(scaler, "scaler.joblib")
+
+    return X_scaled, y
+
+def preprocess_new_data(text):
+    """Preprocess new data using the same transformation as the training data."""
+    cleaned_message = ''.join(e for e in str(text) if e.isalnum())
+    return cleaned_message
