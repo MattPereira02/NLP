@@ -1,6 +1,4 @@
 import joblib
-import re
-import numpy as np
 import pandas as pd
 from preprocessing import preprocess_new_data
 
